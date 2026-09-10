@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSK 1 - Từ vựng</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="page">
+    <div id="nav"></div>
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">Thư viện từ vựng</span>
+          <h1>Từ vựng theo bài</h1>
+          <p class="lead">Trang này gom toàn bộ từ vựng trọng tâm của 15 bài. Có thể lọc theo bài, tìm nhanh theo Hán tự, pinyin hoặc nghĩa tiếng Việt, và bấm nghe phát âm trực tiếp.</p>
+        </div>
+        <div class="panel">
+          <div class="toolbar" style="margin-bottom:12px">
+            <div style="flex:1">
+              <label for="lessonFilter"><strong>Lọc theo bài</strong></label>
+              <select id="lessonFilter"></select>
+            </div>
+          </div>
+          <div>
+            <label for="searchInput"><strong>Tìm kiếm</strong></label>
+            <input id="searchInput" placeholder="Ví dụ: 老师, xuesheng, giáo viên...">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="cards" id="vocabLibrary"></div>
+    </section>
+  </div>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/common.js"></script>
+  <script>
+    const { lessons, buildNav, speakButton, bindSpeech } = window.HSK1_COMMON;
+    document.getElementById("nav").innerHTML = buildNav("vocab");
+
+    const lessonFilter = document.getElementById("lessonFilter");
+    const searchInput = document.getElementById("searchInput");
+    const vocabLibrary = document.getElementById("vocabLibrary");
+
+    lessonFilter.innerHTML = `<option value="all">Tất cả các bài</option>` + lessons.map((lesson) => `
+      <option value="${lesson.id}">Bài ${lesson.id} - ${lesson.subtitle}</option>
+    `).join("");
+
+    function render() {
+      const keyword = searchInput.value.toLowerCase().trim();
+      const lessonId = lessonFilter.value;
+      const items = lessons.flatMap((lesson) => lesson.vocab.map((word) => ({ ...word, lessonId: lesson.id, lessonTitle: lesson.title })));
+      const filtered = items.filter((item) => {
+        const inLesson = lessonId === "all" || Number(lessonId) === item.lessonId;
+        const haystack = `${item.hanzi} ${item.pinyin} ${item.meaning} ${item.note}`.toLowerCase();
+        return inLesson && haystack.includes(keyword);
+      });
+
+      vocabLibrary.innerHTML = filtered.map((item) => `
+        <article class="card">
+          <div class="exercise-title">
+            <div>
+              <span class="badge">Bài ${item.lessonId}</span>
+              <div class="hanzi" style="margin-top:10px">${item.hanzi}</div>
+              <div class="pinyin">${item.pinyin}</div>
+            </div>
+            ${speakButton(item.hanzi)}
+          </div>
+          <strong>${item.meaning}</strong>
+          <p class="muted">${item.note}</p>
+          <div class="tip">${item.lessonTitle}</div>
+        </article>
+      `).join("") || `<div class="panel"><p class="muted">Không tìm thấy mục từ phù hợp.</p></div>`;
+
+      bindSpeech(document);
+    }
+
+    lessonFilter.addEventListener("change", render);
+    searchInput.addEventListener("input", render);
+    render();
+  </script>
+</body>
+</html>

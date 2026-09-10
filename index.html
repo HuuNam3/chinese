@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSK 1 - Bộ web bổ trợ giảng dạy</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="page">
+    <div id="nav"></div>
+
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">Dựa trên 新HSK教程1</span>
+          <h1>Website bổ trợ giảng dạy HSK 1</h1>
+          <p class="lead">Bản nâng cấp này tách thành nhiều trang, chuẩn hóa toàn bộ tiếng Việt có dấu, thêm nội dung bài khóa mở rộng, phát âm tích hợp trên web và ngân hàng bài tập tương tác phong phú hơn.</p>
+          <div class="toolbar" style="margin-top:18px">
+            <a class="button" href="bai-hoc.html">Vào trang bài học</a>
+            <a class="button secondary" href="luyen-tap.html">Vào trung tâm luyện tập</a>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>Các phần chính</strong>
+          <ul class="check-list">
+            <li>15 bài học theo khung từ giáo trình</li>
+            <li>Trang bài học chi tiết có phần bài khóa mở rộng</li>
+            <li>Trang từ vựng có tìm kiếm và phát âm</li>
+            <li>Trang luyện tập có nhiều dạng bài: điền trống, trắc nghiệm, ghép cặp, sắp câu, trả lời mở</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section panel">
+      <h2>Lộ trình sử dụng trên lớp</h2>
+      <div class="grid-3" style="margin-top:16px">
+        <div class="card">
+          <strong>1. Khởi động</strong>
+          <p class="muted">Vào trang <a href="tu-vung.html"><strong>Từ vựng</strong></a> để ôn từ, phát âm từng mục, yêu cầu học viên đọc lại và đặt câu nhanh.</p>
+        </div>
+        <div class="card">
+          <strong>2. Dạy bài mới</strong>
+          <p class="muted">Vào trang <a href="bai-hoc.html"><strong>Bài học</strong></a> để dùng phần ngữ pháp, nội dung bài khóa, câu then chốt và câu hỏi hiểu bài.</p>
+        </div>
+        <div class="card">
+          <strong>3. Luyện tập</strong>
+          <p class="muted">Vào trang <a href="luyen-tap.html"><strong>Luyện tập</strong></a> để chuyển bài thành thao tác web có thể kiểm tra ngay trên lớp.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="lesson-grid" id="lessonGrid"></div>
+    </section>
+    <div class="footer-space"></div>
+  </div>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/common.js"></script>
+  <script>
+    const { lessons, buildNav } = window.HSK1_COMMON;
+    document.getElementById("nav").innerHTML = buildNav("index");
+    document.getElementById("lessonGrid").innerHTML = lessons.map((lesson) => `
+      <article class="card lesson-card">
+        <span class="badge">Bài ${lesson.id}</span>
+        <h3>${lesson.title}</h3>
+        <div class="muted">${lesson.summary}</div>
+        <ul class="pill-list">
+          ${lesson.goals.map((goal) => `<li>${goal}</li>`).join("")}
+        </ul>
+        <div class="toolbar">
+          <a class="button ghost" href="bai-hoc.html?lesson=${lesson.id}">Mở bài học</a>
+          <a class="button ghost" href="luyen-tap.html?lesson=${lesson.id}">Luyện tập</a>
+        </div>
+      </article>
+    `).join("");
+  </script>
+</body>
+</html>

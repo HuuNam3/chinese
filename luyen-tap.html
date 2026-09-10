@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSK 1 - Luyện tập</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="page">
+    <div id="nav"></div>
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">Trung tâm luyện tập</span>
+          <h1 id="practiceTitle"></h1>
+          <p class="lead" id="practiceSummary"></p>
+        </div>
+        <div class="panel sticky-top">
+          <label for="lessonSelect"><strong>Chọn bài để luyện</strong></label>
+          <select id="lessonSelect"></select>
+          <div class="toolbar" style="margin-top:14px">
+            <button class="button secondary" id="playAll">Nghe câu then chốt</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section grid-2">
+      <div class="panel scoreboard">
+        <h2>Chế độ chấm điểm</h2>
+        <div class="score-strip">
+          <div class="score-metric">
+            <span class="muted">Điểm hiện tại</span>
+            <strong id="scoreNow">0 / 0</strong>
+          </div>
+          <div class="score-metric">
+            <span class="muted">Tiến độ đã chấm</span>
+            <strong id="scoreProgress">0%</strong>
+          </div>
+          <div class="score-metric">
+            <span class="muted">Điểm tốt nhất</span>
+            <strong id="scoreBest">Chưa có</strong>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button class="button" id="gradeAll">Chấm toàn bài</button>
+          <button class="button ghost" id="resetScore">Làm lại điểm</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>File nghe của bài</h2>
+        <div id="practiceAudioPanel"></div>
+      </div>
+    </section>
+
+    <section class="section cards" id="practiceRoot"></section>
+    <div class="footer-space"></div>
+  </div>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/common.js"></script>
+  <script>
+    const {
+      buildNav,
+      buildLessonOptions,
+      getLesson,
+      normalize,
+      shuffle,
+      speakButton,
+      bindSpeech,
+      speak,
+      getAudioConfig,
+      getBestScore,
+      saveBestScore
+    } = window.HSK1_COMMON;
+    document.getElementById("nav").innerHTML = buildNav("practice");
+
+    const params = new URLSearchParams(window.location.search);
+    const lessonSelect = document.getElementById("lessonSelect");
+    let lesson = getLesson(params.get("lesson") || 1);
+    lessonSelect.innerHTML = buildLessonOptions(lesson.id);
+    let scoreState = {};
+
+    function totalExerciseCount() {
+      return lesson.exercises.fill.length
+        + lesson.exercises.mcq.length
+        + lesson.exercises.reorder.length
+        + lesson.exercises.matching.length
+        + lesson.exercises.short.length;
+    }
+
+    function scoreKey(type, index) {
+      return `${type}-${index}`;
+    }
+
+    function updateScoreboard() {
+      const total = totalExerciseCount();
+      const values = Object.values(scoreState);
+      const attempted = values.filter((value) => value !== null).length;
+      const points = values.filter(Boolean).length;
+      document.getElementById("scoreNow").textContent = `${points} / ${total}`;
+      document.getElementById("scoreProgress").textContent = `${total ? Math.round((attempted / total) * 100) : 0}%`;
+      saveBestScore(lesson.id, { points, total });
+      const best = getBestScore(lesson.id);
+      document.getElementById("scoreBest").textContent = best ? `${best.points} / ${best.total}` : "Chưa có";
+    }
+
+    function setScore(type, index, isCorrect) {
+      scoreState[scoreKey(type, index)] = Boolean(isCorrect);
+      updateScoreboard();
+    }
+
+    function resetScoreState() {
+      scoreState = {};
+      lesson.exercises.fill.forEach((_, index) => { scoreState[scoreKey("fill", index)] = null; });
+      lesson.exercises.mcq.forEach((_, index) => { scoreState[scoreKey("mcq", index)] = null; });
+      lesson.exercises.reorder.forEach((_, index) => { scoreState[scoreKey("reorder", index)] = null; });
+      lesson.exercises.matching.forEach((_, index) => { scoreState[scoreKey("matching", index)] = null; });
+      lesson.exercises.short.forEach((_, index) => { scoreState[scoreKey("short", index)] = null; });
+      updateScoreboard();
+    }
+
+    function renderAudioPanel() {
+      const audio = getAudioConfig(lesson.id);
+      const panel = document.getElementById("practiceAudioPanel");
+      panel.innerHTML = audio.path ? `
+        <div class="source-box">
+          <strong>${audio.title || `File nghe bài ${String(lesson.id).padStart(2, "0")}`}</strong>
+          <div class="muted">${audio.path}</div>
+          <audio class="audio-player" controls preload="none" src="${audio.path}"></audio>
+        </div>
+      ` : `
+        <div class="source-box">
+          <strong>Chưa có audio liên kết</strong>
+          <p class="muted">Vào trang Bài học để thêm đường dẫn file nghe cho bài này.</p>
+        </div>
+      `;
+    }
+
+    function renderFill(item, index) {
+      return `
+        <article class="card practice-block">
+          <div class="exercise-title">
+            <strong>Điền trống ${index + 1}</strong>
+            ${speakButton(item.answer, true)}
+          </div>
+          <div>${item.prompt}</div>
+          <input id="fill-${index}" placeholder="Nhập đáp án">
+          <button class="button" data-action="check-fill" data-index="${index}">Kiểm tra</button>
+          <div class="feedback" id="fill-feedback-${index}"></div>
+        </article>
+      `;
+    }
+
+    function renderMcq(item, index) {
+      return `
+        <article class="card practice-block">
+          <strong>Trắc nghiệm ${index + 1}</strong>
+          <div>${item.question}</div>
+          ${item.choices.map((choice, choiceIndex) => `
+            <label class="line">
+              <span>${String.fromCharCode(65 + choiceIndex)}. ${choice}</span>
+              <input type="radio" name="mcq-${index}" value="${choiceIndex}">
+            </label>
+          `).join("")}
+          <button class="button secondary" data-action="check-mcq" data-index="${index}">Chấm nhanh</button>
+          <div class="feedback" id="mcq-feedback-${index}"></div>
+        </article>
+      `;
+    }
+
+    function renderReorder(item, index) {
+      const mixed = shuffle(item.tokens);
+      return `
+        <article class="card practice-block">
+          <strong>Sắp câu ${index + 1}</strong>
+          <div>${item.prompt}</div>
+          <div class="dropzone" id="drop-${index}"></div>
+          <div class="token-bank" id="bank-${index}">
+            ${mixed.map((token) => `<button class="token" type="button">${token}</button>`).join("")}
+          </div>
+          <div class="toolbar">
+            <button class="button" data-action="check-order" data-index="${index}">Kiểm tra</button>
+            <button class="button ghost" data-action="reset-order" data-index="${index}">Làm lại</button>
+          </div>
+          <div class="feedback" id="order-feedback-${index}"></div>
+        </article>
+      `;
+    }
+
+    function renderMatching(item, index) {
+      const rights = shuffle(item.pairs.map((pair) => pair.right));
+      return `
+        <article class="card practice-block">
+          <strong>Ghép cặp ${index + 1}</strong>
+          <div>${item.prompt}</div>
+          ${item.pairs.map((pair, pairIndex) => `
+            <div class="line">
+              <span>${pair.left}</span>
+              <select id="match-${index}-${pairIndex}">
+                <option value="">Chọn đáp án</option>
+                ${rights.map((right) => `<option value="${right}">${right}</option>`).join("")}
+              </select>
+            </div>
+          `).join("")}
+          <button class="button secondary" data-action="check-match" data-index="${index}">Kiểm tra</button>
+          <div class="feedback" id="match-feedback-${index}"></div>
+        </article>
+      `;
+    }
+
+    function renderShort(item, index) {
+      return `
+        <article class="card practice-block">
+          <strong>Trả lời mở ${index + 1}</strong>
+          <div>${item.prompt}</div>
+          <textarea id="short-${index}" placeholder="Nhập câu trả lời của bạn"></textarea>
+          <div class="tip">Gợi ý mẫu: ${item.sample}</div>
+          <button class="button" data-action="check-short" data-index="${index}">Đánh giá nhanh</button>
+          <div class="feedback" id="short-feedback-${index}"></div>
+        </article>
+      `;
+    }
+
+    function bindTokens() {
+      document.querySelectorAll(".token").forEach((token) => {
+        token.addEventListener("click", () => {
+          const parent = token.parentElement;
+          if (parent.classList.contains("token-bank")) {
+            parent.previousElementSibling.appendChild(token);
+          } else {
+            parent.nextElementSibling.appendChild(token);
+          }
+        });
+      });
+    }
+
+    function render() {
+      lesson = getLesson(lessonSelect.value);
+      document.getElementById("practiceTitle").textContent = `${lesson.title} - ${lesson.subtitle}`;
+      document.getElementById("practiceSummary").textContent = `${lesson.summary} Trang này chuyển bài luyện tập thành nhiều dạng thao tác trực tiếp trên web.`;
+      const root = document.getElementById("practiceRoot");
+      root.innerHTML = [
+        ...lesson.exercises.fill.map(renderFill),
+        ...lesson.exercises.mcq.map(renderMcq),
+        ...lesson.exercises.reorder.map(renderReorder),
+        ...lesson.exercises.matching.map(renderMatching),
+        ...lesson.exercises.short.map(renderShort)
+      ].join("");
+
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set("lesson", lesson.id);
+      window.history.replaceState({}, "", nextUrl);
+      resetScoreState();
+      renderAudioPanel();
+      bindTokens();
+      bindSpeech(document);
+    }
+
+    document.addEventListener("click", (event) => {
+      const action = event.target.dataset.action;
+      const index = Number(event.target.dataset.index);
+      if (!action && event.target.id !== "playAll") return;
+
+      if (event.target.id === "playAll") {
+        speak(lesson.text.keyLines.join("。"));
+        return;
+      }
+
+      if (action === "check-fill") {
+        const item = lesson.exercises.fill[index];
+        const value = document.getElementById(`fill-${index}`).value;
+        const ok = normalize(value) === normalize(item.answer);
+        const el = document.getElementById(`fill-feedback-${index}`);
+        el.className = `feedback ${ok ? "ok" : "bad"}`;
+        el.textContent = ok ? "Đúng rồi." : `Chưa đúng. Đáp án: ${item.answer}`;
+        setScore("fill", index, ok);
+      }
+
+      if (action === "check-mcq") {
+        const item = lesson.exercises.mcq[index];
+        const selected = document.querySelector(`input[name="mcq-${index}"]:checked`);
+        const ok = selected && Number(selected.value) === item.answer;
+        const el = document.getElementById(`mcq-feedback-${index}`);
+        el.className = `feedback ${ok ? "ok" : "bad"}`;
+        el.textContent = ok ? "Chính xác." : `Chưa đúng. Đáp án đúng là ${String.fromCharCode(65 + item.answer)}.`;
+        setScore("mcq", index, ok);
+      }
+
+      if (action === "check-order") {
+        const item = lesson.exercises.reorder[index];
+        const user = [...document.querySelectorAll(`#drop-${index} .token`)].map((node) => node.textContent).join(" ");
+        const ok = normalize(user) === normalize(item.answer);
+        const el = document.getElementById(`order-feedback-${index}`);
+        el.className = `feedback ${ok ? "ok" : "bad"}`;
+        el.textContent = ok ? "Thứ tự chính xác." : `Chưa đúng. Đáp án: ${item.answer}`;
+        setScore("reorder", index, ok);
+      }
+
+      if (action === "reset-order") {
+        const item = lesson.exercises.reorder[index];
+        const bank = document.getElementById(`bank-${index}`);
+        const drop = document.getElementById(`drop-${index}`);
+        bank.innerHTML = shuffle(item.tokens).map((token) => `<button class="token" type="button">${token}</button>`).join("");
+        drop.innerHTML = "";
+        document.getElementById(`order-feedback-${index}`).textContent = "";
+        scoreState[scoreKey("reorder", index)] = null;
+        updateScoreboard();
+        bindTokens();
+      }
+
+      if (action === "check-match") {
+        const item = lesson.exercises.matching[index];
+        const ok = item.pairs.every((pair, pairIndex) => document.getElementById(`match-${index}-${pairIndex}`).value === pair.right);
+        const el = document.getElementById(`match-feedback-${index}`);
+        el.className = `feedback ${ok ? "ok" : "bad"}`;
+        el.textContent = ok ? "Ghép đúng toàn bộ." : "Còn ít nhất một cặp chưa đúng.";
+        setScore("matching", index, ok);
+      }
+
+      if (action === "check-short") {
+        const item = lesson.exercises.short[index];
+        const value = normalize(document.getElementById(`short-${index}`).value);
+        const ok = item.keywords.some((keyword) => value.includes(normalize(keyword)));
+        const el = document.getElementById(`short-feedback-${index}`);
+        el.className = `feedback ${ok ? "ok" : "bad"}`;
+        el.textContent = ok
+          ? "Câu trả lời đã có điểm ngữ pháp hoặc từ khóa cần thiết."
+          : `Nên bổ sung một trong các cụm: ${item.keywords.join(", ")}`;
+        setScore("short", index, ok);
+      }
+    });
+
+    document.getElementById("gradeAll").addEventListener("click", () => {
+      lesson.exercises.fill.forEach((_, index) => document.querySelector(`[data-action="check-fill"][data-index="${index}"]`)?.click());
+      lesson.exercises.mcq.forEach((_, index) => document.querySelector(`[data-action="check-mcq"][data-index="${index}"]`)?.click());
+      lesson.exercises.reorder.forEach((_, index) => document.querySelector(`[data-action="check-order"][data-index="${index}"]`)?.click());
+      lesson.exercises.matching.forEach((_, index) => document.querySelector(`[data-action="check-match"][data-index="${index}"]`)?.click());
+      lesson.exercises.short.forEach((_, index) => document.querySelector(`[data-action="check-short"][data-index="${index}"]`)?.click());
+    });
+
+    document.getElementById("resetScore").addEventListener("click", () => {
+      resetScoreState();
+      document.querySelectorAll(".feedback").forEach((node) => {
+        node.textContent = "";
+        node.className = "feedback";
+      });
+    });
+
+    lessonSelect.addEventListener("change", render);
+    lessonSelect.value = lesson.id;
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSK 1 - Bài học</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="page">
+    <div id="nav"></div>
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">Trang bài học</span>
+          <h1 id="lessonTitle"></h1>
+          <p class="lead" id="lessonSummary"></p>
+        </div>
+        <div class="panel sticky-top">
+          <div class="toolbar">
+            <label for="lessonSelect"><strong>Chọn bài</strong></label>
+            <select id="lessonSelect"></select>
+          </div>
+          <ul class="pill-list" id="goalList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section grid-2">
+      <div class="panel">
+        <h2>Nội dung gốc từ sách</h2>
+        <div class="compact-grid">
+          <div class="source-status">Chưa thể OCR chính xác tự động từ PDF scan trong môi trường hiện tại</div>
+          <div class="source-box">
+            <strong>Nguồn gốc</strong>
+            <p class="muted">PDF gốc: <code>Giáo trình chuẩn 3.0/HSK1/新HSK教程1.pdf</code>. Anh/chị có thể dán nguyên văn từ OCR hoặc tự chép từ sách vào hai ô bên dưới để website hiển thị đúng nguyên bản.</p>
+          </div>
+          <div>
+            <label for="originalVocab"><strong>Từ vựng nguyên bản của bài</strong></label>
+            <textarea id="originalVocab" placeholder="Dán đầy đủ danh sách từ vựng nguyên bản từ sách/PDF vào đây..."></textarea>
+          </div>
+          <div>
+            <label for="originalText"><strong>Bài khóa nguyên bản của bài</strong></label>
+            <textarea id="originalText" placeholder="Dán nguyên văn bài khóa từ sách/PDF vào đây..."></textarea>
+          </div>
+          <div class="source-actions">
+            <button class="button" id="saveOriginal">Lưu nội dung gốc</button>
+            <button class="button ghost" id="resetOriginal">Xóa nội dung đã lưu</button>
+            <span class="muted" id="originalSavedHint"></span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Thiết lập file nghe</h2>
+        <div class="compact-grid">
+          <div class="source-box">
+            <strong>Tự thêm audio</strong>
+            <p class="muted">Anh/chị có thể đặt file nghe theo đường dẫn tương đối, ví dụ <code>audio/bai-01.mp3</code>, hoặc chọn trực tiếp file nghe để phát thử trong phiên làm việc hiện tại.</p>
+          </div>
+          <div>
+            <label for="audioTitle"><strong>Tên audio hiển thị</strong></label>
+            <input id="audioTitle" placeholder="Ví dụ: File nghe bài 01">
+          </div>
+          <div>
+            <label for="audioPath"><strong>Đường dẫn audio</strong></label>
+            <input id="audioPath" placeholder="Ví dụ: audio/bai-01.mp3 hoặc file:///.../bai-01.mp3">
+          </div>
+          <div>
+            <label for="audioFile"><strong>Hoặc chọn file để nghe thử ngay</strong></label>
+            <input id="audioFile" type="file" accept="audio/*">
+          </div>
+          <div class="audio-actions">
+            <button class="button secondary" id="saveAudio">Lưu cấu hình audio</button>
+            <button class="button ghost" id="loadAudio">Nạp audio</button>
+          </div>
+          <div id="audioPanel"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section grid-2">
+      <div class="panel">
+        <h2>Phát triển từ mới</h2>
+        <div class="cards" id="vocabGrid"></div>
+      </div>
+      <div class="panel">
+        <h2>Hướng dẫn ngữ pháp</h2>
+        <div class="cards" id="grammarGrid"></div>
+      </div>
+    </section>
+
+    <section class="section panel">
+      <h2>Nội dung bài khóa mở rộng</h2>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <strong>Bối cảnh</strong>
+          <p class="muted" id="textScene"></p>
+          <strong>Tóm tắt</strong>
+          <p class="muted" id="textSummary"></p>
+          <strong>Câu then chốt</strong>
+          <ul class="line-list" id="keyLines"></ul>
+        </div>
+        <div class="card">
+          <strong>Đoạn hội thoại mở rộng dùng trên lớp</strong>
+          <div id="dialogueList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section grid-2">
+      <div class="panel">
+        <h2>Câu hỏi hiểu bài</h2>
+        <ul class="line-list" id="questionList"></ul>
+      </div>
+      <div class="panel">
+        <h2>Gợi ý triển khai trên lớp</h2>
+        <ul class="line-list" id="teachingIdeas"></ul>
+      </div>
+    </section>
+    <div class="footer-space"></div>
+  </div>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/common.js"></script>
+  <script>
+    const {
+      buildNav,
+      buildLessonOptions,
+      getLesson,
+      speakButton,
+      bindSpeech,
+      getStoredOriginal,
+      saveStoredOriginal,
+      resetStoredOriginal,
+      getAudioConfig,
+      saveAudioConfig
+    } = window.HSK1_COMMON;
+    document.getElementById("nav").innerHTML = buildNav("lesson");
+
+    const params = new URLSearchParams(window.location.search);
+    const lessonSelect = document.getElementById("lessonSelect");
+    let lesson = getLesson(params.get("lesson") || 1);
+    lessonSelect.innerHTML = buildLessonOptions(lesson.id);
+    let temporaryAudioUrl = "";
+
+    function fallbackVocabText() {
+      return lesson.vocab.map((item, index) => `${index + 1}. ${item.hanzi} | ${item.pinyin} | ${item.meaning}`).join("\n");
+    }
+
+    function fallbackTextBlock() {
+      return lesson.text.dialogue.join("\n");
+    }
+
+    function renderAudioPanel(source = "") {
+      const saved = getAudioConfig(lesson.id);
+      const path = source || temporaryAudioUrl || saved.path;
+      const title = saved.title || `File nghe bài ${String(lesson.id).padStart(2, "0")}`;
+      const panel = document.getElementById("audioPanel");
+      panel.innerHTML = path ? `
+        <div class="source-box">
+          <strong>${title}</strong>
+          <div class="muted">${path}</div>
+          <audio class="audio-player" controls preload="none" src="${path}"></audio>
+        </div>
+      ` : `
+        <div class="source-box">
+          <strong>Chưa có audio</strong>
+          <p class="muted">Hãy nhập đường dẫn audio hoặc chọn một file để nghe thử.</p>
+        </div>
+      `;
+    }
+
+    function render() {
+      lesson = getLesson(lessonSelect.value);
+      document.title = `HSK 1 - ${lesson.title}`;
+      document.getElementById("lessonTitle").textContent = `${lesson.title} - ${lesson.subtitle}`;
+      document.getElementById("lessonSummary").textContent = lesson.summary;
+      document.getElementById("goalList").innerHTML = lesson.goals.map((goal) => `<li>${goal}</li>`).join("");
+      const original = getStoredOriginal(lesson.id);
+      const audio = getAudioConfig(lesson.id);
+      document.getElementById("originalVocab").value = original.vocab || fallbackVocabText();
+      document.getElementById("originalText").value = original.text || fallbackTextBlock();
+      document.getElementById("audioTitle").value = audio.title || `File nghe bài ${String(lesson.id).padStart(2, "0")}`;
+      document.getElementById("audioPath").value = audio.path || `audio/bai-${String(lesson.id).padStart(2, "0")}.mp3`;
+      document.getElementById("originalSavedHint").textContent = "";
+      temporaryAudioUrl = "";
+      document.getElementById("audioFile").value = "";
+      renderAudioPanel();
+
+      document.getElementById("vocabGrid").innerHTML = lesson.vocab.map((item) => `
+        <article class="card">
+          <div class="exercise-title">
+            <div>
+              <div class="hanzi">${item.hanzi}</div>
+              <div class="pinyin">${item.pinyin}</div>
+            </div>
+            ${speakButton(item.hanzi, true)}
+          </div>
+          <strong>${item.meaning}</strong>
+          <p class="muted">${item.note}</p>
+        </article>
+      `).join("");
+
+      document.getElementById("grammarGrid").innerHTML = lesson.grammar.map((item) => `
+        <article class="card">
+          <strong>${item.pattern}</strong>
+          <p class="muted">${item.explanation}</p>
+          <div class="badge">${item.examples.join(" / ")}</div>
+        </article>
+      `).join("");
+
+      document.getElementById("textScene").textContent = lesson.text.scene;
+      document.getElementById("textSummary").textContent = lesson.text.summary;
+      document.getElementById("keyLines").innerHTML = lesson.text.keyLines.map((line) => `
+        <li class="line">
+          <span>${line}</span>
+          ${speakButton(line, true)}
+        </li>
+      `).join("");
+      document.getElementById("dialogueList").innerHTML = lesson.text.dialogue.map((line) => `
+        <div class="line">
+          <span>${line}</span>
+          ${speakButton(line.replace(/^[A-ZＡ-Ｚa-z：]+/, "").trim(), true)}
+        </div>
+      `).join("");
+      document.getElementById("questionList").innerHTML = lesson.text.questions.map((item) => `<li class="line"><span>${item}</span></li>`).join("");
+      document.getElementById("teachingIdeas").innerHTML = lesson.text.teachingIdeas.map((item) => `<li class="line"><span>${item}</span></li>`).join("");
+
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set("lesson", lesson.id);
+      window.history.replaceState({}, "", nextUrl);
+      bindSpeech(document);
+    }
+
+    document.getElementById("saveOriginal").addEventListener("click", () => {
+      saveStoredOriginal(lesson.id, {
+        vocab: document.getElementById("originalVocab").value.trim(),
+        text: document.getElementById("originalText").value.trim()
+      });
+      document.getElementById("originalSavedHint").textContent = "Đã lưu nội dung gốc cho bài này trên trình duyệt hiện tại.";
+    });
+
+    document.getElementById("resetOriginal").addEventListener("click", () => {
+      resetStoredOriginal(lesson.id);
+      document.getElementById("originalVocab").value = fallbackVocabText();
+      document.getElementById("originalText").value = fallbackTextBlock();
+      document.getElementById("originalSavedHint").textContent = "Đã xóa nội dung đã lưu, quay về bản hiển thị hiện tại của website.";
+    });
+
+    document.getElementById("saveAudio").addEventListener("click", () => {
+      saveAudioConfig(lesson.id, {
+        title: document.getElementById("audioTitle").value.trim(),
+        path: document.getElementById("audioPath").value.trim()
+      });
+      renderAudioPanel();
+    });
+
+    document.getElementById("loadAudio").addEventListener("click", () => {
+      renderAudioPanel(document.getElementById("audioPath").value.trim());
+    });
+
+    document.getElementById("audioFile").addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      temporaryAudioUrl = URL.createObjectURL(file);
+      renderAudioPanel(temporaryAudioUrl);
+    });
+
+    lessonSelect.addEventListener("change", render);
+    render();
+  </script>
+</body>
+</html>
